@@ -21,6 +21,7 @@ public class TransactionController {
     @PostMapping("/buy")
     public String buy(@RequestBody Transaction transaction) {
         transactionService.buy(transaction);
+        System.out.println(transactionService.getClass());
         return "买入成功";
     }
 
@@ -33,5 +34,35 @@ public class TransactionController {
     @GetMapping("/portfolio/summary")
     public Map<String, Object> summary() {
         return portfolioService.summary();
+    }
+
+    @PostMapping("/test-self")
+    public String testSelf(@RequestBody Transaction transaction) {
+        transactionService.testSelfInvocation(transaction);
+        return "测试完成";
+    }
+
+    @PostMapping("/test-propagation")
+    public String testPropagation() {
+
+        transactionService.outer();
+
+        return "测试完成";
+    }
+
+    @PostMapping("/test-outbox")
+    public String testOutbox() {
+
+        transactionService.testOutbox();
+
+        return "测试完成";
+    }
+
+    @PostMapping("/test-outboxRollBack")
+    public String testOutboxRollBack() {
+
+        transactionService.testOutboxRollback();
+
+        return "测试完成";
     }
 }

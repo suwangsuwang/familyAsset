@@ -5,11 +5,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.swan.familyasset.Entity.Asset;
-import org.swan.familyasset.Entity.Position;
-import org.swan.familyasset.Entity.SellEvent;
-import org.swan.familyasset.Entity.Transaction;
+import org.swan.familyasset.Entity.*;
 import org.swan.familyasset.Mapper.AssetMapper;
+import org.swan.familyasset.Mapper.OutboxEventMapper;
 import org.swan.familyasset.Mapper.PositionMapper;
 import org.swan.familyasset.Mapper.TransactionMapper;
 import org.swan.familyasset.UserContext;
@@ -34,6 +32,12 @@ public class TransactionService {
 
     @Autowired
     private RabbitTemplate rabbitTemplate;
+
+    @Autowired
+    private TransactionTestService transactionTestService;
+
+    @Autowired
+    private OutboxEventMapper outboxEventMapper;
 
     @Transactional
     public void buy(Transaction transaction) {
@@ -67,35 +71,35 @@ public class TransactionService {
             positionMapper.insert(position);
             redisTemplate.delete("position:list:" + userId);
             return;
+        } else {
+            // 原有持仓
+            BigDecimal oldQuantity = position.getQuantity();
+            BigDecimal oldAvgCost = position.getAvgCost();
+
+            // 新的买入
+            BigDecimal buyQuantity = transaction.getQuantity();
+            BigDecimal buyPrice = transaction.getPrice();
+
+            // 新总数量
+            BigDecimal newQuantity = oldQuantity.add(buyQuantity);
+
+            // 原总成本
+            BigDecimal oldTotal = oldQuantity.multiply(oldAvgCost);
+
+            // 新买入成本
+            BigDecimal buyTotal = buyQuantity.multiply(buyPrice);
+
+            // 新平均成本
+            BigDecimal newAvgCost = oldTotal.add(buyTotal).divide(newQuantity, 4, RoundingMode.HALF_UP);
+
+            // 更新
+            position.setQuantity(newQuantity);
+            position.setAvgCost(newAvgCost);
+
+            positionMapper.update(position);
+            redisTemplate.delete("position:list:" + userId);
         }
-
-        // 原有持仓
-        BigDecimal oldQuantity = position.getQuantity();
-        BigDecimal oldAvgCost = position.getAvgCost();
-
-        // 新的买入
-        BigDecimal buyQuantity = transaction.getQuantity();
-        BigDecimal buyPrice = transaction.getPrice();
-
-        // 新总数量
-        BigDecimal newQuantity = oldQuantity.add(buyQuantity);
-
-        // 原总成本
-        BigDecimal oldTotal = oldQuantity.multiply(oldAvgCost);
-
-        // 新买入成本
-        BigDecimal buyTotal = buyQuantity.multiply(buyPrice);
-
-        // 新平均成本
-        BigDecimal newAvgCost = oldTotal.add(buyTotal).divide(newQuantity, 4, RoundingMode.HALF_UP);
-
-        // 更新
-        position.setQuantity(newQuantity);
-        position.setAvgCost(newAvgCost);
-
-        positionMapper.update(position);
-        redisTemplate.delete("position:list:" + userId);
-
+        throw new RuntimeException("测试事务");
     }
 
 
@@ -158,5 +162,73 @@ public class TransactionService {
         event.setAvgCost(position.getAvgCost());
 
         rabbitTemplate.convertAndSend("sell.exchange", "sell.success", event);
+    }
+
+    @Transactional
+    public void testSelfInvocation(Transaction transaction) {
+        System.out.println("进入 testSelfInvocation()");
+        buy(transaction);
+    }
+
+    @Transactional
+    public void outer() {
+
+        System.out.println("进入 outer()");
+
+        Transaction transaction = new Transaction();
+        transaction.setUserId(1L);
+        transaction.setAssetId(1L);
+        transaction.setType("OUTER");
+        transaction.setPrice(new BigDecimal("100.00"));
+        transaction.setQuantity(new BigDecimal("1.00"));
+
+        transactionMapper.insert(transaction);
+
+//        try {
+//            transactionTestService.inner();
+//        } catch (RuntimeException e) {
+//            System.out.println("捕获 inner 异常");
+//        }
+
+        System.out.println("outer() 继续执行");
+
+        Transaction transaction2 = new Transaction();
+        transaction2.setUserId(1L);
+        transaction2.setAssetId(1L);
+        transaction2.setType("AFTER");
+        transaction2.setPrice(new BigDecimal("300.00"));
+        transaction2.setQuantity(new BigDecimal("1.00"));
+
+        transactionMapper.insert(transaction2);
+    }
+
+    @Transactional
+    public void testOutbox() {
+
+        OutboxEvent event = new OutboxEvent();
+
+        event.setEventType("TEST_EVENT");
+        event.setAggregateId(123L);
+        event.setPayload("{\"message\":\"hello outbox\"}");
+        event.setStatus("NEW");
+
+        outboxEventMapper.insert(event);
+
+        System.out.println("Outbox 写入成功");
+    }
+
+    @Transactional
+    public void testOutboxRollback() {
+
+        OutboxEvent event = new OutboxEvent();
+
+        event.setEventType("ROLLBACK_TEST");
+        event.setAggregateId(456L);
+        event.setPayload("{\"message\":\"shuld rollback\"}");
+        event.setStatus("NEW");
+
+        outboxEventMapper.insert(event);
+
+        throw new RuntimeException("故意回滚");
     }
 }
