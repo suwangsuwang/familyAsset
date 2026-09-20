@@ -57,11 +57,55 @@ DeepSeek / GLM 作为第二导师（可选）
 | 5. 英语 | 20 分钟，主题 = 当天的技术主题 |
 | 6. 日志 | 填 `daily/` 当天文件 |
 
+## 三个平台的分工
+
+| 平台 | 定位 | 负责 |
+|------|------|------|
+| **网页 ChatGPT** | 总教练 / 学习中枢 | 路线、今天学什么、知识体系、进度、复盘、出题 |
+| **VS Code + Claude Code** | 实验室 / 编程现场 | 读代码、改代码、跑、Debug、写测试、Git、真实实验 |
+| **DeepSeek / GLM** | 第二、第三位专家 | Code Review、质疑、并发/一致性/性能审查 |
+
+```text
+              你
+              │
+      ┌───────┼────────┐
+      ↓       ↓        ↓
+ ChatGPT  Claude Code  DeepSeek/GLM
+   │          │           │
+ 教学        写代码       Review
+ 路线        Debug        质疑
+ 复盘        实验         第二意见
+```
+
+大致比例（随阶段浮动）：理论学习 ChatGPT 50% / IDE 20% / Review 30%；
+做项目 ChatGPT 20% / IDE 60% / Review 20%。
+
+**基础知识问题在网页里问，不在 IDE 里问。** IDE 里只做一件事：
+「这个项目现在具体应该怎么改？」
+
+## 学习流水线（每个技术点都走一遍）
+
+```text
+① 网页  理解原理
+② 网页  给你出问题
+③ IDE   找真实代码（只读，不改）
+④ 你    自己设计
+⑤ 你    自己写
+⑥ IDE   运行 / Debug
+⑦ DeepSeek  Code Review
+⑧ GLM       第二次 Review
+⑨ 网页  总结知识 + 复盘
+⑩ Git   Commit + 学习日志
+```
+
+**铁律：不要让 AI 一开始就写代码。** 先理解、先自己设计、先自己实现，
+AI 只在「找代码」「Review」「Debug」这三个位置介入。
+
 ## 目录
 
 ```text
 learning/
-├── README.md                  # 本文件：规则、节奏
+├── README.md                  # 本文件：规则、节奏、分工
 ├── ROADMAP.md                 # 12 个月路线图
 ├── daily/                     # 每日学习日志
 └── templates/
